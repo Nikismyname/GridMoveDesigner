@@ -12,6 +12,8 @@ public class Main : MonoBehaviour
     private List<DelimitorSegmentY> Ysegments = new List<DelimitorSegmentY>();
     private Camera camera;
 
+    private bool linesHidden = false;
+
     public float xLeft;
     public float xRight;
     public float xWidth;
@@ -21,12 +23,19 @@ public class Main : MonoBehaviour
 
     public EditingModes mode;
 
+    private CheckForRectangles rectCheck = new CheckForRectangles();
+
     void Start()
     {
         this.mode = EditingModes.placingLines;
         this.camera = Camera.main;
         var btn = GameObject.Find("SetBtn");
         this.GetScreenDimentions();
+
+        this.CreateLineX(new Vector2(xLeft, yBottom), new Vector2(xLeft, yTop));
+        this.CreateLineX(new Vector2(xRight, yBottom), new Vector2(xRight, yTop));
+        this.CreateLineY(new Vector2(xLeft ,yBottom), new Vector2(xRight, yBottom));
+        this.CreateLineY(new Vector2(xLeft, yTop), new Vector2(xRight, yTop)); 
     }
 
     // Update is called once per frame
@@ -55,6 +64,65 @@ public class Main : MonoBehaviour
         else
         {
             this.BreakLines();
+        }
+
+        if (Input.GetKeyDown(KeyCode.T))
+        {
+            if (this.linesHidden == false)
+            {
+                //var things = this.rectCheck.GetSegments(this.Xsegments.ToArray(), this.Ysegments.ToArray());
+                //foreach (var thing in things)
+                //{
+                //    Color background = new Color(
+                //      UnityEngine.Random.Range(0f, 1f),
+                //      UnityEngine.Random.Range(0f, 1f),
+                //      UnityEngine.Random.Range(0f, 1f)
+                //  );
+
+                //    this.DrawLine(thing.One, thing.Two, background);
+                //}
+
+                Debug.Log("T");
+                var result = this.rectCheck.Check(this.Xsegments.ToArray(), this.Ysegments.ToArray());
+                if(result.Count == 0)
+                {
+                    Debug.Log("UNACCEPTABBLE CONDITION");
+                }
+                foreach (var item in result)
+                {
+                    Debug.Log($"{item.x1} {item.x2} {item.y1} {item.y2}");
+
+                    Debug.Log("HERE " +item.Segments.Count);
+                    //foreach (var segment in item.Segments)
+                    //{
+                    //    Debug.Log(se);
+                    //}
+
+                    Color background = new Color(
+                      UnityEngine.Random.Range(0f, 1f),
+                      UnityEngine.Random.Range(0f, 1f),
+                      UnityEngine.Random.Range(0f, 1f)
+                    );
+
+                    var one = new Vector2(item.x1, item.y1);
+                    var two = new Vector2(item.x2, item.y1);
+                    var three = new Vector2(item.x2, item.y2);
+                    var four = new Vector2(item.x1, item.y2);
+
+                    this.DrawLine(one, two, background);
+                    this.DrawLine(two, three, background);
+                    this.DrawLine(three, four, background);
+                    this.DrawLine(four, one, background);
+                }
+
+                this.HideAllLines();
+                this.linesHidden = true;
+            }
+            else
+            {
+                this.linesHidden = false;
+                this.ShowAllLines();
+            }
         }
     }
 
@@ -102,6 +170,8 @@ public class Main : MonoBehaviour
                 ys[i].Destroy();
             }
             this.BreakLinesY(breakLinesY.ToArray());
+
+            this.mode = EditingModes.placingLines;
         }
     }
 
@@ -199,8 +269,8 @@ public class Main : MonoBehaviour
         Vector3 bottomLeft = camera.ViewportToWorldPoint(new Vector3(0, 0, camera.nearClipPlane));
         Vector3 topRight = camera.ViewportToWorldPoint(new Vector3(1, 1, camera.nearClipPlane));
 
-        Debug.Log("BOTTOM_LEFT: " + bottomLeft);
-        Debug.Log("TOP_RIGHT: " + topRight);
+        //Debug.Log("BOTTOM_LEFT: " + bottomLeft);
+        //Debug.Log("TOP_RIGHT: " + topRight);
 
         this.xLeft = bottomLeft.x;
         this.xRight = topRight.x;
@@ -219,6 +289,32 @@ public class Main : MonoBehaviour
     private void DrawLine(Vector3 pos1, Vector3 pos2, Color color)
     {
         Debug.DrawLine(pos1, pos2, color, 20);
+    }
+
+    public void HideAllLines()
+    {
+        foreach (var segment in this.Xsegments)
+        {
+            segment.Hide();
+        }
+
+        foreach (var segment in this.Ysegments)
+        {
+            segment.Hide();
+        }
+    }
+
+    public void ShowAllLines()
+    {
+        foreach (var segment in this.Xsegments)
+        {
+            segment.Show();
+        }
+
+        foreach (var segment in this.Ysegments)
+        {
+            segment.Show();
+        }
     }
 
     #endregion

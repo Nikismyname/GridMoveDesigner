@@ -137,9 +137,62 @@ public class DelimitorSegmentX : MonoBehaviour
         return null;
     }
 
+    public Segment[] Brake()
+    {
+        List<Segment> result = new List<Segment>();
+
+        float[] intersectingYs = this.others
+            .Where(x => x.left.x <= this.X && x.right.x >= this.X)
+            .Select(x => x.Y)
+            .Where(x=> x <= this.top.y && x >= this.bottom.y)
+            .OrderByDescending(x=>x)
+            .ToArray();
+
+        if (this.top.x != intersectingYs[0])
+        {
+            result.Add(new Segment
+            {
+                One = new Vector2(this.X, this.top.y),
+                Two = new Vector2(this.X, intersectingYs[0]),
+                IsY = false
+            });
+        }
+
+        for (int i = 0; i < intersectingYs.Length - 1; i++)
+        {
+            result.Add(new Segment
+            {
+                One = new Vector2(this.X, intersectingYs[i]),
+                Two = new Vector2(this.X, intersectingYs[i + 1]),
+                IsY = false
+            });
+        }
+
+        if (this.bottom.x != intersectingYs[intersectingYs.Length - 1])
+        {
+            result.Add(new Segment
+            {
+                One = new Vector2(this.X, intersectingYs[intersectingYs.Length - 1]),
+                Two = new Vector2(this.X, this.bottom.y),
+                IsY = false
+            });
+        }
+
+        return result.ToArray();
+    }
     public void Destroy()
     {
         this.line.Destroy();
+    }
+
+    public void Hide()
+    {
+        this.line.line.SetActive(false);
+    }
+
+    public void Show()
+    {
+        this.line.line.SetActive(true);
     }
 }
 

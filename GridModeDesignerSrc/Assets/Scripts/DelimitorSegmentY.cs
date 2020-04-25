@@ -30,7 +30,7 @@ public class DelimitorSegmentY : MonoBehaviour
         this.others = others;
         this.main = main;
 
-        if(left.x > right.x)
+        if (left.x > right.x)
         {
             var temp = left;
             this.left = right;
@@ -93,7 +93,7 @@ public class DelimitorSegmentY : MonoBehaviour
                     left = Mathf.Max(leftXs);
                 }
 
-                float[] rightXs = intersectingXs.Where(x => x >= pos.x && x<= this.right.x).ToArray();
+                float[] rightXs = intersectingXs.Where(x => x >= pos.x && x <= this.right.x).ToArray();
                 if (rightXs.Length == 0)
                 {
                     right = this.right.x;
@@ -138,10 +138,64 @@ public class DelimitorSegmentY : MonoBehaviour
         return null;
     }
 
+    public Segment[] Brake()
+    {
+        List<Segment> result = new List<Segment>();
+
+        float[] intersectingXs = this.others
+            .Where(x => x.top.y >= this.Y && x.bottom.y <= this.Y) /// vertical intersects this(hor) on y
+            .Select(x => x.X)
+            .Where(x => x >= this.left.x && x <= this.right.x)
+            .OrderBy(x=>x)
+            .ToArray();
+
+        if (this.left.x != intersectingXs[0])
+        {
+            result.Add(new Segment
+            {
+                One = new Vector2(this.left.x, this.Y),
+                Two = new Vector2(intersectingXs[0], this.Y),
+                IsY = true
+            });
+        }
+
+        for (int i = 0; i < intersectingXs.Length -1; i++)
+        {
+            result.Add(new Segment
+            {
+                One = new Vector2(intersectingXs[i], this.Y),
+                Two = new Vector2(intersectingXs[i+1], this.Y),
+                IsY = true
+            });
+        }
+
+        if (this.right.x != intersectingXs[intersectingXs.Length-1])
+        {
+            result.Add(new Segment
+            {
+                One = new Vector2(intersectingXs[intersectingXs.Length - 1], this.Y),
+                Two = new Vector2(this.right.x, this.Y),
+                IsY = true
+            });
+        }
+
+        return result.ToArray();
+    }
+
     public void Destroy()
     {
         this.line.Destroy();
         Destroy(this.gameObject);
+    }
+
+    public void Hide()
+    {
+        this.line.line.SetActive(false);
+    }
+
+    public void Show()
+    {
+        this.line.line.SetActive(true);
     }
 }
 
