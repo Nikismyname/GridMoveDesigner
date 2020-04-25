@@ -14,18 +14,21 @@
         private Transform parentTransform;
         private string name;
         private float width;
+        private GameObject prefab;
         public GameObject line;
+        
         #endregion
 
         #region SetUp
 
-        public void SetUp(Vector3 from, Vector3 to, Color color, Transform parent, string name, float width)
+        public void SetUp(Vector3 from, Vector3 to, Color color, Transform parent, string name, float width, GameObject prefab)
         {
             this.from = from;
             this.to = to;
             this.parentTransform = parent;
             this.name = name;
             this.width = width;
+            this.prefab = prefab;
             this.SetUpGOs(color);
         }
 
@@ -38,6 +41,7 @@
             var middle = new GameObject("Middle Parent");
             this.middle = middle;
             this.line = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            ///this.line = GameObject.Instantiate(this.prefab);
             line.name = "BEAM";
             //var line2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
             //line2.name = "ACCENT";
@@ -51,9 +55,9 @@
             line.transform.SetParent(middle.transform);
             //line2.transform.SetParent(middle.transform);
             middle.transform.Rotate(new Vector3(0, 1, 0), 90);
+            line.SetShader();
             line.SetColor(lineColor);
             //line2.SetColor(Color.red);
-            line.SetShader();
             //line2.SetShader();
             this.Snap();
             //line2.transform.position -= new Vector3(0, 0, 2);
@@ -82,11 +86,11 @@
 
         #endregion
 
-
         #region INTERFACE
 
         public void Destroy()
         {
+            GameObject.Destroy(this.parentTransform.gameObject);
             GameObject.Destroy(this.parent);
         }
 
