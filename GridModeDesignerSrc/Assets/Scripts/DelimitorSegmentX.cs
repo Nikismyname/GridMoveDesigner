@@ -86,7 +86,7 @@ public class DelimitorSegmentX : MonoBehaviour
                 float[] topYs = intersectingYs.Where(x => x > pos.y && x <= this.top.y ).ToArray();
                 if (topYs.Length == 0)
                 {
-                    top = this.main.yTop;
+                    top = this.top.y;
                 }
                 else
                 {
@@ -96,7 +96,7 @@ public class DelimitorSegmentX : MonoBehaviour
                 float[] bottomYs = intersectingYs.Where(x => x <= pos.y && x >= this.bottom.y).ToArray();
                 if (bottomYs.Length == 0)
                 {
-                    bottom = this.main.yBottom;
+                    bottom = this.bottom.y;
                 }
                 else
                 {

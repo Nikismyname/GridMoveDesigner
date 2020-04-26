@@ -1157,6 +1157,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fca2b6c7f43766641b2e4b032e2ca4c6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  CylinderPrefab: {fileID: 0}
+  xLeft: 0
+  xRight: 0
+  xWidth: 0
+  yTop: 0
+  yBottom: 0
+  yHeight: 0
+  ID: 
+  mode: 0
+  textMeshPrefab: {fileID: 4941524558469852667, guid: cfae9cd2f63dc2549b194f97f180e181,
+    type: 3}
 --- !u!4 &1422840214
 Transform:
   m_ObjectHideFlags: 0
@@ -1189,7 +1200,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1433188726
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -1,11 +1,24 @@
-﻿using System;
+﻿#region INIT
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using UnityEngine;
 
 public class CheckForRectangles
 {
-    public List<Volume> Check(DelimitorSegmentX[] xs, DelimitorSegmentY[] ys)
+    private Main main;
+    private int debugDelay = 300;
+    private bool debug = false;
+    private bool test = false;
+
+    public CheckForRectangles(Main main)
+    {
+        this.main = main;
+    }
+
+    public async Task<List<Volume>> Check(DelimitorSegmentX[] xs, DelimitorSegmentY[] ys)
     {
         var segmentsSome = new List<Segment>();
         foreach (var item in xs)
@@ -20,6 +33,7 @@ public class CheckForRectangles
 
         var segments = new List<Segment>();
 
+        var counter = 0;
         for (int i = 0; i < segmentsSome.Count; i++)
         {
             var seg = segmentsSome[i];
@@ -28,6 +42,7 @@ public class CheckForRectangles
                 continue;
             }
 
+            seg.Id = counter++;
             segments.Add(seg);
         }
 
@@ -52,105 +67,381 @@ public class CheckForRectangles
         //this.CheckY(item, item, 0, false, true, segments.ToArray(), new Volume(), volumes);
         //}
 
-        var item1 = ySegments.OrderByDescending(x => x.One.y).First();
-        this.CheckY(item1, item1, 0, true, true, segments.ToArray(), new Volume(), volumes);
+        //var item1 = ySegments.OrderByDescending(x => x.One.y).Last();
+        //await this.CheckY(item1, item1, 0, false, segments.ToArray(), new Volume(), volumes);
+
+        if (test)
+        {
+            ///###################################SAMPLE TESTS
+            bool down = false;
+            if (down)
+            {
+                var top = ySegments.OrderByDescending(x => x.One.y).First(); //TOP
+                await this.CheckY(top, top, 0, down, segments.ToArray(), new Volume(), volumes, null);
+            }
+            else
+            {
+                var bot = ySegments.OrderByDescending(x => x.One.y).Last(); //BOTTOM
+                await this.CheckY(bot, bot, 0, down, segments.ToArray(), new Volume(), volumes, null);
+            }
+            ///###################################END
+        }
+        else
+        {
+            foreach (var ySeg in ySegments)
+            {
+                await this.CheckY(ySeg, ySeg, 0, true, segments.ToArray(), new Volume(), volumes, Utils.RandColor());
+                await this.CheckY(ySeg, ySeg, 0, false, segments.ToArray(), new Volume(), volumes, Utils.RandColor());
+            }
+        }
+
+        //Debug.Log("###############################################################################");
+        foreach (var seg in segments)
+        {
+            //if (seg.Mathing == Vector2.zero && seg.Other == Vector2.zero)
+            //{
+            //    Debug.Log($"b {seg.Id}||{seg.One.x.ToString("0.00")} {seg.One.y.ToString("0.00")}|${seg.Two.x.ToString("0.00")} {seg.Two.y.ToString("0.00")} IS_CHECK: {seg.Check}");
+            //}
+            //else
+            //{
+            //    Debug.Log($"{seg.Id}||{seg.Mathing.x.ToString("0.00")} {seg.Mathing.y.ToString("0.00")}|${seg.Other.x.ToString("0.00")} {seg.Other.y.ToString("0.00")} IS_CHECK: {seg.Check}");
+            //}
+            //this.DrawLine(seg.One, seg.Two, Color.black);
+        }
 
         for (int i = 0; i < volumes.Count; i++)
         {
-            var x = volumes[i];
+            var vol = volumes[i];
             var points = new List<Vector2>();
-            foreach (var item in x.Segments)
+            foreach (var item in vol.Segments)
             {
                 points.Add(item.One);
                 points.Add(item.Two);
             }
 
-            x.x1 = points.Select(y => y.x).Min();
-            x.x2 = points.Select(y => y.x).Max();
+            vol.x1 = points.Select(y => y.x).Min();
+            vol.x2 = points.Select(y => y.x).Max();
 
-            x.y1 = points.Select(y => y.y).Max();
-            x.y2 = points.Select(y => y.y).Min();
+            vol.y1 = points.Select(y => y.y).Max();
+            vol.y2 = points.Select(y => y.y).Min();
         }
 
         return volumes;
     }
 
-    private void CheckY(
+    #endregion
+
+    private async Task CheckY(
         Segment origin,
-        Segment seg,
+        Segment segment,
         int turnCount,
-        bool goingDown,
-        bool goingRight,
+        bool genDirDown,
         Segment[] allSegments,
         Volume volume,
-        List<Volume> results)
+        List<Volume> results, 
+        Color? uniColor
+        )
     {
-        //Debug.Log($"{origin.One.x.ToString("0.00")}-{origin.One.y.ToString("0.00")}|{origin.Two.x.ToString("0.00")}-{origin.Two.y.ToString("0.00")}|| GoingRight {goingRight} GoingDown{goingDown}");
-        Color color = Color.red;
-        if(turnCount == 0)
+        #region CalcDirections
+        //Debug.Log($"ALABALA: {segment.Id} {turnCount}");
+        var goingRight = false;
+        var goingDown = false;
+
+        if (genDirDown)
         {
-            color = Color.green;
-            Debug.Log("Green!");
-        }
-        if(turnCount == 1)
-        {
-            color = Color.blue;
-            Debug.Log("blue!");
-        }
-        if (turnCount == 2)
-        {
-            color = Color.cyan;
-            Debug.Log("cyan!");
-        }
-        if (turnCount == 3)
-        {
-            color = Color.black;
-            Debug.Log("black!");
+            if (turnCount == 0) /// down right 
+            {
+                goingRight = true;
+                goingDown = true;
+            }
+            if (turnCount == 1) /// down left 
+            {
+                goingRight = false;
+                goingDown = true;
+            }
+            if (turnCount == 2) /// up left
+            {
+                goingRight = false;
+                goingDown = false;
+            }
+            if (turnCount == 3) /// up right
+            {
+                goingRight = true;
+                goingDown = false;
+            }
+            if (turnCount == 4)
+            {
+                goingRight = true;
+                goingDown = false;
+            }
         }
 
-        this.DrawLine(seg.One, seg.Two, color);
-        #region SOME
-        ///seg and origin are the same the wirst iteration
-        seg.Check = true;
-        /// origin from -> two
-        /// origin to -> one
-
-        var otherXs = (allSegments.Where(x => (x.One == seg.Two || x.Two == seg.Two) && x.IsY == false && x.Check == false).ToArray());
-        var otherYs = (allSegments.Where(x => (x.One == seg.Two || x.Two == seg.Two) && x.IsY == true && x.Check == false).ToArray());
-        foreach (var item in otherXs)
+        if (genDirDown == false)
         {
-            if (item.One == seg.Two)
+            if (turnCount == 0) /// up right
             {
-                item.Other = item.Two;
-                item.Mathing = item.One;
+                goingRight = true;
+                goingDown = false;
             }
-            else
+            if (turnCount == 1) /// up left
             {
-                item.Other = item.One;
-                item.Mathing = item.Two;
+                goingRight = false;
+                goingDown = false;
             }
-        }
-        foreach (var item in otherYs)
-        {
-            if (item.One == seg.Two)
+            if (turnCount == 2) /// down left
             {
-                item.Other = item.Two;
-                item.Mathing = item.One;
+                goingRight = false;
+                goingDown = true;
             }
-            else
+            if (turnCount == 3) /// down right
             {
-                item.Other = item.One;
-                item.Mathing = item.Two;
+                goingRight = true;
+                goingDown = true;
+            }
+            if (turnCount == 4)
+            {
+                goingRight = true;
+                goingDown = false;
             }
         }
 
         #endregion
 
-        volume.Segments.Add(seg);
+        #region DEBUG_VISUAL
 
-        if (seg.Two == origin.One)
+        if (this.debug)
         {
-            Debug.Log("HugeSuccess!");
+
+            Color color = Color.clear;
+            if (volume.Segments.Count == 0)
+            {
+                color = Color.cyan;
+            }
+            else if (volume.Segments.Last() == segment)
+            {
+                color = Color.green;
+            }
+            else if (segment.One.y == segment.Two.y)
+            {
+                color = Color.red;
+            }
+            else if (segment.Matching.y > segment.Other.y) /// DOWN
+            {
+                color = Color.black;
+            }
+            else
+            {
+                color = Color.white; /// UP
+            }
+            if (uniColor != null)
+            {
+                Utils.DrawThickLine(segment.One, segment.Two, uniColor.Value, 0.5f);
+            }
+            else
+            {
+                Utils.DrawThickLine(segment.One, segment.Two, color, 0.5f);
+            }
+
+            this.main.ID = segment.Id.ToString();
+            await Task.Delay(this.debugDelay);
+        }
+
+        #endregion
+
+        #region DEBUG TEXT
+
+        //Color color = Color.red;
+        //if (turnCount == 0)
+        //{
+        //    color = Color.green;
+        //    if (segment.Matching == Vector2.zero && segment.Other == Vector2.zero)
+        //    {
+        //        Debug.Log("Green! b " + $"{segment.Id}||{segment.One.x.ToString("0.00")} {segment.One.y.ToString("0.00")}|${segment.Two.x.ToString("0.00")} {segment.Two.y.ToString("0.00")}");
+        //    }
+        //    else
+        //    {
+        //        Debug.Log("Green!" + $"{segment.Id}||{segment.Matching.x.ToString("0.00")} {segment.Matching.y.ToString("0.00")}|${segment.Other.x.ToString("0.00")} {segment.Other.y.ToString("0.00")}");
+        //    }
+        //}
+        //if (turnCount == 1)
+        //{
+        //    color = Color.blue;
+        //    if (segment.Matching == Vector2.zero && segment.Other == Vector2.zero)
+        //    {
+        //        Debug.Log("blue! b " + $"{segment.Id}||{segment.One.x.ToString("0.00")} {segment.One.y.ToString("0.00")}|${segment.Two.x.ToString("0.00")} {segment.Two.y.ToString("0.00")}");
+        //    }
+        //    else
+        //    {
+        //        Debug.Log("blue!" + $"{segment.Id}||{segment.Matching.x.ToString("0.00")} {segment.Matching.y.ToString("0.00")}|${segment.Other.x.ToString("0.00")} {segment.Other.y.ToString("0.00")}");
+        //    }
+        //}
+        //if (turnCount == 2)
+        //{
+        //    color = Color.cyan;
+        //    if (segment.Matching == Vector2.zero && segment.Other == Vector2.zero)
+        //    {
+        //        Debug.Log("cyan! b " + $"{segment.Id}||{segment.One.x.ToString("0.00")} {segment.One.y.ToString("0.00")}|${segment.Two.x.ToString("0.00")} {segment.Two.y.ToString("0.00")}");
+        //    }
+        //    else
+        //    {
+        //        Debug.Log("cyan!" + $"{segment.Id}||{segment.Matching.x.ToString("0.00")} {segment.Matching.y.ToString("0.00")}|${segment.Other.x.ToString("0.00")} {segment.Other.y.ToString("0.00")}");
+        //    }
+        //}
+        //if (turnCount == 3)
+        //{
+        //    color = Color.black;
+        //    if (segment.Matching == Vector2.zero && segment.Other == Vector2.zero)
+        //    {
+        //        Debug.Log("black! b " + $"{segment.Id}||{segment.One.x.ToString("0.00")} {segment.One.y.ToString("0.00")}|${segment.Two.x.ToString("0.00")} {segment.Two.y.ToString("0.00")}");
+        //    }
+        //    else
+        //    {
+        //        Debug.Log("black!" + $"{segment.Id}||{segment.Matching.x.ToString("0.00")} {segment.Matching.y.ToString("0.00")}|${segment.Other.x.ToString("0.00")} {segment.Other.y.ToString("0.00")}");
+        //    }
+        //}
+
+        //Debug.Log("#################################################################################################################");
+
+        //foreach (var seg1 in allSegments)
+        //{
+        //    if (segment.Matching == Vector2.zero || segment.Other == Vector2.zero)
+        //    {
+        //        Debug.Log($"b {seg1.Id}||{seg1.One.x.ToString("0.00")} {seg1.One.y.ToString("0.00")}|${seg1.Two.x.ToString("0.00")} {seg1.Two.y.ToString("0.00")} IS_CHECK: {seg1.Check}");
+        //    }
+        //    else
+        //    {
+        //        Debug.Log($"{seg1.Id}||{seg1.Matching.x.ToString("0.00")} {seg1.Matching.y.ToString("0.00")}|${seg1.Other.x.ToString("0.00")} {seg1.Other.y.ToString("0.00")} IS_CHECK: {seg1.Check}");
+        //    }
+        //}
+
+        //Debug.Log("#################################################################################################################");
+
+        /////seg and origin are the same the wirst iteration
+        //segment.Check = true;
+        ///// origin from -> two
+        ///// origin to -> one
+
+        #endregion
+
+        if (segment == origin)
+        {
+            segment.Other = segment.Two;
+            segment.Matching = segment.One;
+        }
+
+        #region GET_NEXT_POSITIONS
+
+        List<Segment> filteredXs = new List<Segment>();
+        List<Segment> otherXs = new List<Segment>();
+        if (turnCount < 4)
+        {
+            foreach (var x in allSegments)
+            {
+                if ((x.One == segment.Other || x.Two == segment.Other) && x.Id != segment.Id && x.IsY == false && x.Check == false)
+                {
+                    otherXs.Add(new Segment
+                    {
+                        Id = x.Id,
+                        Check = x.Check,
+                        IsY = x.IsY,
+                        Matching = x.Matching,
+                        Other = x.Other,
+                        One = x.One,
+                        Two = x.Two,
+                    });
+                }
+            }
+            foreach (var item in otherXs)
+            {
+                if (item.One == segment.Other)
+                {
+                    item.Other = item.Two;
+                    item.Matching = item.One;
+                }
+                else
+                {
+                    item.Other = item.One;
+                    item.Matching = item.Two;
+                }
+            }
+            foreach (var x in otherXs)
+            {
+                if ((goingDown && x.Other.y < x.Matching.y) || (goingDown == false && x.Other.y >= x.Matching.y))
+                {
+                    filteredXs.Add(x);
+                }
+            }
+        }
+
+        List<Segment> filteredYs = new List<Segment>();
+        List<Segment> otherYs = new List<Segment>();
+        foreach (var x in allSegments)
+        {
+            if ((x.One == segment.Other || x.Two == segment.Other) && x.Id != segment.Id && x.IsY == true && x.Check == false)
+            {
+                otherYs.Add(new Segment
+                {
+                    Id = x.Id,
+                    Check = x.Check,
+                    IsY = x.IsY,
+                    Matching = x.Matching,
+                    Other = x.Other,
+                    One = x.One,
+                    Two = x.Two,
+                });
+            }
+        }
+        foreach (var item in otherYs)
+        {
+            if (item.One == segment.Other)
+            {
+                item.Other = item.Two;
+                item.Matching = item.One;
+            }
+            else
+            {
+                item.Other = item.One;
+                item.Matching = item.Two;
+            }
+        }
+        foreach (var y in otherYs)
+        {
+            if ((goingRight && y.Other.x > y.Matching.x) || (goingRight == false && y.Other.x <= y.Matching.x))
+            {
+                filteredYs.Add(y);
+            }
+        }
+
+        #endregion
+
+        volume.Segments.Add(segment);
+       
+        if (segment.Other == origin.One && segment.Id != origin.Id)
+        {
+            //int segId = segment.Id;
+            //if (results.Any(x => x.Segments.Select(y => y.Id).OrderBy(y => y).SequenceEqual(volume.Segments.Select(y => y.Id).OrderBy(y => y))))
+            //{
+            //    //Debug.Log("Already got this mate!");
+            //    return;
+            //}
+
+            var exst = results.Select(x=>x.Segments.Select(y=>y.Id).OrderBy(y=>y).ToArray());
+            var curr = volume.Segments.Select(x => x.Id).OrderBy(x => x).ToArray();
+
+            //Debug.Log("Mine" + string.Join(", ", curr));
+            foreach (var item in exst)
+            {
+                //Debug.Log("Other" + string.Join(", ", item));
+            }
+
+            if (exst.Any(x => x.SequenceEqual(curr)))
+            {
+                Debug.Log("DOUBLE!");
+                volume.Segments.Remove(segment);
+                segment.Check = false;
+                return;
+            }
+
             Segment[] destination = new Segment[volume.Segments.Count];
             Array.Copy(volume.Segments.ToArray(), destination, volume.Segments.Count);
             results.Add(new Volume
@@ -158,41 +449,37 @@ public class CheckForRectangles
                 Segments = destination.ToList()
             });
 
-            volume.Segments.Remove(seg);
-            seg.Check = false;
+            volume.Segments.Remove(segment);
+            segment.Check = false;
             return;
         }
 
-        if (turnCount == 4)
+        int newYTurnCount = turnCount;
+        if (turnCount == 1 || turnCount == 3)
         {
-            volume.Segments.Remove(seg);
-            seg.Check = false;
-            Debug.Log("Huge Loss!");
-            return;
+            newYTurnCount += 1;
+        }
+        foreach (var y in filteredYs)
+        {
+            await CheckY(origin, y, newYTurnCount, genDirDown, allSegments, volume, results, uniColor);
         }
 
-        //Debug.Log("OTHER X " + otherXs.Length);
-        //Debug.Log("OTHER Y " + otherYs.Length);
-
-        foreach (var y in otherYs)
+        int newXTurnCount = turnCount;
+        if (turnCount == 0 || turnCount == 2)
         {
-            if ((goingRight && y.Other.x > y.Mathing.x) || (goingRight == false && y.Other.x <= y.Mathing.x))
-            {
-                CheckY(origin, y, turnCount + 1, !goingDown, !goingRight, allSegments, volume, results);
-            }
+            newXTurnCount += 1;
+        }
+        foreach (var x in filteredXs)
+        {
+            await CheckY(origin, x, newXTurnCount, genDirDown, allSegments, volume, results, uniColor);
         }
 
-        foreach (var x in otherXs)
-        {
-            if ((goingDown && x.Other.y < x.Mathing.y) || (goingDown == false && x.Other.y >= x.Mathing.y))
-            {
-                CheckY(origin, x, turnCount + 1, !goingDown, !goingRight, allSegments, volume, results);
-            }
-        }
-
-        volume.Segments.Remove(seg);
-        seg.Check = false;
+        volume.Segments.Remove(segment);
+        segment.Check = false;
+        return;
     }
+
+    #region OTHERS
 
     public Segment[] GetSegments(DelimitorSegmentX[] xs, DelimitorSegmentY[] ys)
     {
@@ -210,33 +497,145 @@ public class CheckForRectangles
         return segments.ToArray();
     }
 
-    private void DrawX(Vector3 pos, Color color)
+    public bool RectIntLine(
+        float x1,
+        float x2,
+        float y1,
+        float y2,
+        Vector2 line1,
+        Vector2 line2,
+        bool inclusive = true)
     {
-        Debug.DrawLine(pos.OffsetY(0.5f), pos.OffsetY(-0.5f), color, 0.3f);
-        Debug.DrawLine(pos.OffsetX(0.5f), pos.OffsetX(-0.5f), color, 0.3f);
+        if (line1.x == line2.x) // |
+        {
+            Vector2 top;
+            Vector2 bot;
+
+            if (line1.y < line2.y)
+            {
+                top = line2;
+                bot = line1;
+            }
+            else
+            {
+                top = line2;
+                bot = line1;
+            }
+
+            if (line1.x >= x1 && line1.x <= x2)
+            {
+                if (bot.y > y1)
+                {
+                    return false;
+                }
+
+                if (top.y < y2)
+                {
+                    return false;
+                }
+
+                return true;
+            }
+        }
+        else if (line1.y == line2.y) // -
+        {
+            Vector2 left;
+            Vector2 right;
+
+            if (line1.x < line2.x)
+            {
+                left = line1;
+                right = line2;
+            }
+            else
+            {
+                right = line1;
+                left = line2;
+            }
+
+            if (line1.y <= y1 && line1.y >= y2)
+            {
+                if (left.x < x1)
+                {
+                    return false;
+                }
+
+                if (right.x > x2)
+                {
+                    return false;
+                }
+
+                return true;
+            }
+        }
+
+        return false;
     }
 
-    private void DrawLine(Vector3 pos1, Vector3 pos2, Color color)
+    public bool PointInsideRect(Vector2 rectTopLeft, float rectLength, float rectHeight, Vector2 point, bool inclusive = false)
     {
-        float offset = 0.02f;
-        if (pos1.x == pos2.x)
+        if (inclusive)
         {
-            Debug.DrawLine(pos1.OffsetX(offset), pos2.OffsetX(offset), color, 2);
-            Debug.DrawLine(pos1.OffsetX(-offset), pos2.OffsetX(-offset), color, 2);
-        }
-        else 
-        if(pos1.y == pos2.y)
-        {
-            Debug.DrawLine(pos1.OffsetY(offset), pos2.OffsetY(offset), color, 2);
-            Debug.DrawLine(pos1.OffsetY(-offset), pos2.OffsetY(-offset), color, 2);
+            if (point.x <= rectTopLeft.x + rectLength && point.x >= rectTopLeft.x
+                && point.y >= rectTopLeft.y - rectHeight && point.y <= rectTopLeft.y)
+            {
+                return true;
+            }
+
+            return false;
         }
         else
         {
-            Debug.Log("BIG PP");
+            if (point.x < rectTopLeft.x + rectLength && point.x > rectTopLeft.x
+                && point.y > rectTopLeft.y - rectHeight && point.y < rectTopLeft.y)
+            {
+                return true;
+            }
+
+            return false;
         }
     }
+
+    public bool DoRectsOverlap(Vector2 l1, Vector2 r1, Vector2 l2, Vector2 r2, bool inclusive/*, int id1, int id2*/)
+    {
+        if (inclusive)
+        {
+            // If one rectangle is on left side of other  
+            if (l1.x >= r2.x || l2.x >= r1.x)
+            {
+                return false;
+            }
+
+            // If one rectangle is above other  
+            if (l1.y <= r2.y || l2.y <= r1.y)
+            {
+                return false;
+            }
+            return true;
+        }
+        else
+        {
+            // If one rectangle is on left side of other  
+            if (l1.x > r2.x || l2.x > r1.x)
+            {
+                // Debug.LogError(); 
+                return false;
+            }
+
+            // If one rectangle is above other  
+            if (l1.y < r2.y || l2.y < r1.y)
+            {
+                return false;
+            }
+            return true;
+        }
+    }
+
+    #endregion
 }
 
+
+#region MODELS
 
 public class Volume
 {
@@ -256,9 +655,17 @@ public class Segment
 
     public Vector2 Other { get; set; }
 
-    public Vector2 Mathing { get; set; }
+    public Vector2 Matching { get; set; }
 
     public bool IsY { get; set; }
 
     public bool Check { get; set; } = false;
+
+    public int Id { get; set; }
 }
+
+
+//Color color = Utils.RandColor(); 
+//Utils.DrawEdgeLine(segment.Mathing, segment.Other, color);
+
+#endregion

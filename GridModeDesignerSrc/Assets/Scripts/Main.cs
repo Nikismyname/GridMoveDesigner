@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using UnityEngine;
 
 public class Main : MonoBehaviour
@@ -21,12 +22,17 @@ public class Main : MonoBehaviour
     public float yBottom;
     public float yHeight;
 
+    public string ID;
+
     public EditingModes mode;
 
-    private CheckForRectangles rectCheck = new CheckForRectangles();
+    private CheckForRectangles rectCheck;
+
+    public GameObject textMeshPrefab;
 
     void Start()
     {
+        this.rectCheck = new CheckForRectangles(this);
         this.mode = EditingModes.placingLines;
         this.camera = Camera.main;
         var btn = GameObject.Find("SetBtn");
@@ -34,12 +40,12 @@ public class Main : MonoBehaviour
 
         this.CreateLineX(new Vector2(xLeft, yBottom), new Vector2(xLeft, yTop));
         this.CreateLineX(new Vector2(xRight, yBottom), new Vector2(xRight, yTop));
-        this.CreateLineY(new Vector2(xLeft ,yBottom), new Vector2(xRight, yBottom));
-        this.CreateLineY(new Vector2(xLeft, yTop), new Vector2(xRight, yTop)); 
+        this.CreateLineY(new Vector2(xLeft, yBottom), new Vector2(xRight, yBottom));
+        this.CreateLineY(new Vector2(xLeft, yTop), new Vector2(xRight, yTop));
     }
 
     // Update is called once per frame
-    void Update()
+    async void Update()
     {
         if (Input.GetKeyDown(KeyCode.B))
         {
@@ -83,45 +89,118 @@ public class Main : MonoBehaviour
                 //}
 
                 Debug.Log("T");
-                var result = this.rectCheck.Check(this.Xsegments.ToArray(), this.Ysegments.ToArray());
-                if(result.Count == 0)
+                this.HideAllLines();
+                List<Volume> result = await this.rectCheck.Check(this.Xsegments.ToArray(), this.Ysegments.ToArray());
+                if (result.Count == 0)
                 {
                     Debug.Log("UNACCEPTABBLE CONDITION");
                 }
-                foreach (var item in result)
+                else
                 {
-                    Debug.Log($"{item.x1} {item.x2} {item.y1} {item.y2}");
+                    Debug.Log($"COUNT ONE: {result.Count}");
 
-                    Debug.Log("HERE " +item.Segments.Count);
-                    //foreach (var segment in item.Segments)
-                    //{
-                    //    Debug.Log(se);
-                    //}
+                    List<Volume> blackList = new List<Volume>();
 
-                    Color background = new Color(
-                      UnityEngine.Random.Range(0f, 1f),
-                      UnityEngine.Random.Range(0f, 1f),
-                      UnityEngine.Random.Range(0f, 1f)
-                    );
+                    result = result
+                        .OrderByDescending(x => Math.Abs(x.x1 - x.x2))
+                        .ThenByDescending(x => Math.Abs(x.y1 - x.y2))
+                        .ToList();
 
-                    var one = new Vector2(item.x1, item.y1);
-                    var two = new Vector2(item.x2, item.y1);
-                    var three = new Vector2(item.x2, item.y2);
-                    var four = new Vector2(item.x1, item.y2);
+                    for (int i = 0; i < result.Count; i++)
+                    {
+                        Volume curr = result[i];
+                        for (int j = i + 1; j < result.Count; j++)
+                        {
+                            Volume other = result[j];
 
-                    this.DrawLine(one, two, background);
-                    this.DrawLine(two, three, background);
-                    this.DrawLine(three, four, background);
-                    this.DrawLine(four, one, background);
+                            if (this.rectCheck.DoRectsOverlap(new Vector2(curr.x1, curr.y1), new Vector2(curr.x2, curr.y2),
+                                new Vector2(other.x1, other.y1), new Vector2(other.x2, other.y2), true) == true)
+                            {
+                                var currWidt = Math.Abs(curr.x1 - curr.x2);
+                                var currHeight = Math.Abs(curr.y1 - curr.y2);
+                                var otherWidt = Math.Abs(other.x1 - other.x2);
+                                var otherHeight = Math.Abs(other.y1 - other.y2);
+
+                                if (currWidt <= otherWidt && currHeight <= otherHeight)
+                                {
+                                    blackList.Add(other);
+                                }
+                                else if (currWidt >= otherWidt && currHeight >= otherHeight)
+                                {
+                                    blackList.Add(curr);
+                                }
+                                else
+                                {
+                                    Debug.Log("HERE");
+                                }
+                            }
+                        }
+                    }
+
+                    //result = result.Where(x => blackList.Contains(x) == false).ToList();
+
+                    Debug.Log($"COUNT TWO: {result.Count}");
                 }
 
-                this.HideAllLines();
+                this.DrawResultsWithDelay(result, true, 500);
+
                 this.linesHidden = true;
             }
             else
             {
                 this.linesHidden = false;
                 this.ShowAllLines();
+            }
+        }
+    }
+
+    private async void DrawResultsWithDelay(List<Volume> result, bool wait, int ms = 0)
+    {
+        float time = 2;
+        foreach (var item in result)
+        {
+            //Color background = new Color(
+            //  UnityEngine.Random.Range(0f, 1f),
+            //  UnityEngine.Random.Range(0f, 1f),
+            //  UnityEngine.Random.Range(0f, 1f)
+            //);
+
+            //var one = new Vector2(item.x1, item.y1);
+            //var two = new Vector2(item.x2, item.y1);
+            //var three = new Vector2(item.x2, item.y2);
+            //var four = new Vector2(item.x1, item.y2);
+
+            //Utils.DrawThickLine(one, two, background, time);
+            //Utils.DrawThickLine(two, three, background, time);
+            //Utils.DrawThickLine(three, four, background, time);
+            //Utils.DrawThickLine(four, one, background, time);
+
+            if (item.Segments.Select(x => x.Id).Distinct().Count() != item.Segments.Select(x => x.Id).Count())
+            {
+                Debug.LogError("ITEM SENDT TWICE");
+            }
+
+            Debug.Log(string.Join(" ", item.Segments.Select(x => x.Id)/*.OrderBy(x => x)*/) + $" W:{item.x2 - item.x1} H:{item.y1 - item.y2}");
+
+            foreach (var seg in item.Segments)
+            {
+                Color color = new Color(
+                  UnityEngine.Random.Range(0f, 1f),
+                  UnityEngine.Random.Range(0f, 1f),
+                  UnityEngine.Random.Range(0f, 1f)
+                );
+                Utils.DrawThickLine(seg.One, seg.Two, color, time);
+
+                var meshGo = GameObject.Instantiate(this.textMeshPrefab);
+                TextMesh tmesh = meshGo.GetComponent<TextMesh>();
+                var pos = Vector3.Lerp(seg.One, seg.Two, 0.5f);
+                meshGo.transform.position = Vector3.Lerp(pos, new Vector3(0,0, pos.z), 0.2f);
+                tmesh.text = seg.Id.ToString();
+            }
+
+            if (wait)
+            {
+                await Task.Delay(ms);
             }
         }
     }
@@ -280,17 +359,6 @@ public class Main : MonoBehaviour
         this.yHeight = Math.Abs(this.yTop - this.yBottom);
     }
 
-    private void DrawX(Vector3 pos, Color color)
-    {
-        Debug.DrawLine(pos.OffsetY(0.5f), pos.OffsetY(-0.5f), color, 0.3f);
-        Debug.DrawLine(pos.OffsetX(0.5f), pos.OffsetX(-0.5f), color, 0.3f);
-    }
-
-    private void DrawLine(Vector3 pos1, Vector3 pos2, Color color)
-    {
-        Debug.DrawLine(pos1, pos2, color, 20);
-    }
-
     public void HideAllLines()
     {
         foreach (var segment in this.Xsegments)
@@ -318,4 +386,10 @@ public class Main : MonoBehaviour
     }
 
     #endregion
+
+    private void OnGUI()
+    {
+        GUI.skin.label.fontSize = 25;
+        GUI.Label(new Rect(new Vector2(0, 0), new Vector2(200, 200)), this.ID);
+    }
 }
