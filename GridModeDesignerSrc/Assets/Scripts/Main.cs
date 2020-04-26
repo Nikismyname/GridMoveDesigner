@@ -131,18 +131,18 @@ public class Main : MonoBehaviour
                                 }
                                 else
                                 {
-                                    Debug.Log("HERE");
+                                    //Debug.Log("HERE");
                                 }
                             }
                         }
                     }
 
-                    //result = result.Where(x => blackList.Contains(x) == false).ToList();
+                    result = result.Where(x => blackList.Contains(x) == false).ToList();
 
                     Debug.Log($"COUNT TWO: {result.Count}");
                 }
 
-                this.DrawResultsWithDelay(result, true, 500);
+                this.DrawResultsWithDelay(result, false, 500);
 
                 this.linesHidden = true;
             }
@@ -180,7 +180,7 @@ public class Main : MonoBehaviour
                 Debug.LogError("ITEM SENDT TWICE");
             }
 
-            Debug.Log(string.Join(" ", item.Segments.Select(x => x.Id)/*.OrderBy(x => x)*/) + $" W:{item.x2 - item.x1} H:{item.y1 - item.y2}");
+            //Debug.Log(string.Join(" ", item.Segments.Select(x => x.Id)/*.OrderBy(x => x)*/) + $" W:{item.x2 - item.x1} H:{item.y1 - item.y2}");
 
             foreach (var seg in item.Segments)
             {
@@ -191,11 +191,11 @@ public class Main : MonoBehaviour
                 );
                 Utils.DrawThickLine(seg.One, seg.Two, color, time);
 
-                var meshGo = GameObject.Instantiate(this.textMeshPrefab);
-                TextMesh tmesh = meshGo.GetComponent<TextMesh>();
-                var pos = Vector3.Lerp(seg.One, seg.Two, 0.5f);
-                meshGo.transform.position = Vector3.Lerp(pos, new Vector3(0,0, pos.z), 0.2f);
-                tmesh.text = seg.Id.ToString();
+                //var meshGo = GameObject.Instantiate(this.textMeshPrefab);
+                //TextMesh tmesh = meshGo.GetComponent<TextMesh>();
+                //var pos = Vector3.Lerp(seg.One, seg.Two, 0.5f);
+                //meshGo.transform.position = Vector3.Lerp(pos, new Vector3(0,0, pos.z), 0.2f);
+                //tmesh.text = seg.Id.ToString();
             }
 
             if (wait)

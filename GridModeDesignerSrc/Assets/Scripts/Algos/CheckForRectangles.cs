@@ -436,7 +436,7 @@ public class CheckForRectangles
 
             if (exst.Any(x => x.SequenceEqual(curr)))
             {
-                Debug.Log("DOUBLE!");
+                //Debug.Log("DOUBLE!");
                 volume.Segments.Remove(segment);
                 segment.Check = false;
                 return;
