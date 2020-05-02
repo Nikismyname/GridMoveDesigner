@@ -2,5 +2,6 @@
 {
     placingLines = 1,
     breakingLines = 2,
+    menu = 3
 }
 

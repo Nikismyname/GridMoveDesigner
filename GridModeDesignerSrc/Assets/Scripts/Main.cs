@@ -1,6 +1,8 @@
 ﻿using Assets.Scripts.Helpers;
+using SFB;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -11,7 +13,7 @@ public class Main : MonoBehaviour
     public GameObject CylinderPrefab;
     private List<DelimitorSegmentX> Xsegments = new List<DelimitorSegmentX>();
     private List<DelimitorSegmentY> Ysegments = new List<DelimitorSegmentY>();
-    private Camera camera;
+    private Camera myCamera;
 
     private bool linesHidden = false;
 
@@ -27,27 +29,93 @@ public class Main : MonoBehaviour
     public EditingModes mode;
 
     private CheckForRectangles rectCheck;
+    private FormatRectsToTextFile toText;
 
     public GameObject textMeshPrefab;
 
     void Start()
     {
         this.rectCheck = new CheckForRectangles(this);
-        this.mode = EditingModes.placingLines;
-        this.camera = Camera.main;
-        var btn = GameObject.Find("SetBtn");
-        this.GetScreenDimentions();
+        this.toText = new FormatRectsToTextFile(this);
+        this.myCamera = Camera.main;
+        this.mode = EditingModes.menu;
 
-        this.CreateLineX(new Vector2(xLeft, yBottom), new Vector2(xLeft, yTop));
-        this.CreateLineX(new Vector2(xRight, yBottom), new Vector2(xRight, yTop));
-        this.CreateLineY(new Vector2(xLeft, yBottom), new Vector2(xRight, yBottom));
-        this.CreateLineY(new Vector2(xLeft, yTop), new Vector2(xRight, yTop));
+        this.GetScreenDimentions();
+        this.AddBorderLines();
     }
 
-    // Update is called once per frame
     async void Update()
     {
-        if (Input.GetKeyDown(KeyCode.B))
+        if (Input.GetKeyDown(KeyCode.S))
+        {
+            string tempDir = "E:/Tests/TempDir";
+            if (!Directory.Exists(tempDir))
+            {
+                Directory.CreateDirectory(tempDir);
+            }
+
+            var files = Directory.GetFiles(tempDir);
+            foreach (var item in files)
+            {
+                File.Delete(item);
+            }
+
+            string path = StandaloneFileBrowser.SaveFilePanel("Save File", tempDir, "MyGridGGen", "grid");
+
+            var volumes = await this.GenerateVolumes();
+
+            File.WriteAllText(path, this.toText.ConvertToText(volumes));
+
+            string name = path.Substring(path.LastIndexOf("\\") + 1);
+
+#if UNITY_EDITOR
+            string destination = $@"E:\Tests\Grids\{name}";
+#else
+            string destination = $@"C:\Program Files (x86)\GridMove\Grids\{name}";
+#endif
+            if (File.Exists(destination))
+            {
+                File.Delete(destination);
+            }
+
+            File.Move(path, destination);
+        }
+
+        if (Input.GetKeyDown(KeyCode.L))
+        {
+
+#if UNITY_EDITOR
+            string path = StandaloneFileBrowser.OpenFilePanel(
+                "Open File",
+                $@"E:\Tests\Grids",
+                "grid", 
+                false)[0];
+#else
+             string path = StandaloneFileBrowser.OpenFilePanel(
+                "Open File",
+                $@"C:\Program Files (x86)\GridMove\Grids",
+                "grid", 
+                false)[0];
+#endif
+
+            string fileContents = File.ReadAllText(path);
+            var volums = this.toText.ConvertToVolumes(fileContents);
+
+            for (int i = 0; i < Ysegments.Count; i++)
+            {
+                this.Ysegments[i].Destroy();
+            }
+            for (int i = 0; i < Xsegments.Count; i++)
+            {
+                this.Xsegments[i].Destroy();
+            }
+            this.Ysegments.Clear();
+            this.Xsegments.Clear();
+
+            this.DrawVolumesSegments(volums);
+        }
+
+        if (Input.GetKeyDown(KeyCode.B) && this.mode != EditingModes.menu)
         {
             this.mode = EditingModes.breakingLines;
         }
@@ -76,75 +144,11 @@ public class Main : MonoBehaviour
         {
             if (this.linesHidden == false)
             {
-                //var things = this.rectCheck.GetSegments(this.Xsegments.ToArray(), this.Ysegments.ToArray());
-                //foreach (var thing in things)
-                //{
-                //    Color background = new Color(
-                //      UnityEngine.Random.Range(0f, 1f),
-                //      UnityEngine.Random.Range(0f, 1f),
-                //      UnityEngine.Random.Range(0f, 1f)
-                //  );
-
-                //    this.DrawLine(thing.One, thing.Two, background);
-                //}
-
-                Debug.Log("T");
-                this.HideAllLines();
-                List<Volume> result = await this.rectCheck.Check(this.Xsegments.ToArray(), this.Ysegments.ToArray());
-                if (result.Count == 0)
-                {
-                    Debug.Log("UNACCEPTABBLE CONDITION");
-                }
-                else
-                {
-                    Debug.Log($"COUNT ONE: {result.Count}");
-
-                    List<Volume> blackList = new List<Volume>();
-
-                    result = result
-                        .OrderByDescending(x => Math.Abs(x.x1 - x.x2))
-                        .ThenByDescending(x => Math.Abs(x.y1 - x.y2))
-                        .ToList();
-
-                    for (int i = 0; i < result.Count; i++)
-                    {
-                        Volume curr = result[i];
-                        for (int j = i + 1; j < result.Count; j++)
-                        {
-                            Volume other = result[j];
-
-                            if (this.rectCheck.DoRectsOverlap(new Vector2(curr.x1, curr.y1), new Vector2(curr.x2, curr.y2),
-                                new Vector2(other.x1, other.y1), new Vector2(other.x2, other.y2), true) == true)
-                            {
-                                var currWidt = Math.Abs(curr.x1 - curr.x2);
-                                var currHeight = Math.Abs(curr.y1 - curr.y2);
-                                var otherWidt = Math.Abs(other.x1 - other.x2);
-                                var otherHeight = Math.Abs(other.y1 - other.y2);
-
-                                if (currWidt <= otherWidt && currHeight <= otherHeight)
-                                {
-                                    blackList.Add(other);
-                                }
-                                else if (currWidt >= otherWidt && currHeight >= otherHeight)
-                                {
-                                    blackList.Add(curr);
-                                }
-                                else
-                                {
-                                    //Debug.Log("HERE");
-                                }
-                            }
-                        }
-                    }
-
-                    result = result.Where(x => blackList.Contains(x) == false).ToList();
-
-                    Debug.Log($"COUNT TWO: {result.Count}");
-                }
-
-                this.DrawResultsWithDelay(result, false, 500);
+                //var result = await this.GenerateVolumes();
+                //this.DrawResultsWithDelay(result.ToList(), false, 500);
 
                 this.linesHidden = true;
+                this.HideAllLines();
             }
             else
             {
@@ -152,6 +156,70 @@ public class Main : MonoBehaviour
                 this.ShowAllLines();
             }
         }
+    }
+
+    private void DrawVolumesSegments(Volume[] volums)
+    {
+        foreach (var item in volums)
+        {
+            Vector2 x1y1 = new Vector2(item.x1, item.y1);
+            Vector2 x1y2 = new Vector2(item.x1, item.y2);
+            Vector2 x2y1 = new Vector2(item.x2, item.y1);
+            Vector2 x2y2 = new Vector2(item.x2, item.y2);
+
+            this.CreateLineY(x1y1, x2y1);
+            this.CreateLineY(x1y2, x2y2);
+            this.CreateLineX(x1y1, x1y2); 
+            this.CreateLineX(x2y1, x2y2); 
+        }
+    }
+
+    private async Task<Volume[]> GenerateVolumes( bool filterOverlap = true)
+    {
+        List<Volume> result = await this.rectCheck.Check(this.Xsegments.ToArray(), this.Ysegments.ToArray());
+        result = result
+            .OrderByDescending(x => Math.Abs(x.x1 - x.x2))
+            .ThenByDescending(x => Math.Abs(x.y1 - x.y2))
+            .ToList();
+
+        if (filterOverlap)
+        {
+            List<Volume> blackList = new List<Volume>();
+            for (int i = 0; i < result.Count; i++)
+            {
+                Volume curr = result[i];
+                for (int j = i + 1; j < result.Count; j++)
+                {
+                    Volume other = result[j];
+
+                    if (this.rectCheck.DoRectsOverlap(new Vector2(curr.x1, curr.y1), new Vector2(curr.x2, curr.y2),
+                        new Vector2(other.x1, other.y1), new Vector2(other.x2, other.y2), true) == true)
+                    {
+                        var currWidt = Math.Abs(curr.x1 - curr.x2);
+                        var currHeight = Math.Abs(curr.y1 - curr.y2);
+                        var otherWidt = Math.Abs(other.x1 - other.x2);
+                        var otherHeight = Math.Abs(other.y1 - other.y2);
+
+                        if (currWidt <= otherWidt && currHeight <= otherHeight)
+                        {
+                            blackList.Add(other);
+                        }
+                        else if (currWidt >= otherWidt && currHeight >= otherHeight)
+                        {
+                            blackList.Add(curr);
+                        }
+                        else
+                        {
+                            //Debug.Log("HERE");
+                        }
+                    }
+                }
+            }
+
+            result = result.Where(x => blackList.Contains(x) == false).ToList();
+        }
+
+        return result.ToArray();
     }
 
     private async void DrawResultsWithDelay(List<Volume> result, bool wait, int ms = 0)
@@ -207,10 +275,10 @@ public class Main : MonoBehaviour
 
     private void BreakLines()
     {
-        if (Input.GetMouseButtonDown(0))
+        if (Input.GetMouseButtonDown(0) && this.mode != EditingModes.menu)
         {
             Vector3 mp = Input.mousePosition;
-            Vector3 pos = this.camera.GetComponent<Camera>().ScreenToWorldPoint(mp).OffsetZ(11);
+            Vector3 pos = this.myCamera.GetComponent<Camera>().ScreenToWorldPoint(mp).OffsetZ(11);
 
             List<DelimitorSegmentX> xes = new List<DelimitorSegmentX>();
             List<BreakLinesResult> breakLinesX = new List<BreakLinesResult>();
@@ -281,7 +349,7 @@ public class Main : MonoBehaviour
         if (Input.GetMouseButtonDown(0))
         {
             Vector3 mp = Input.mousePosition;
-            Vector3 pos = this.camera.GetComponent<Camera>().ScreenToWorldPoint(mp).OffsetZ(11);
+            Vector3 pos = this.myCamera.GetComponent<Camera>().ScreenToWorldPoint(mp).OffsetZ(11);
             //Debug.Log($"{pos.x.ToString("0.00")} {pos.y.ToString("0.00")}");
 
             if (this.Xsegments.Any(x => x.IsColliding(pos)) || this.Ysegments.Any(x => x.IsColliding(pos)))
@@ -310,7 +378,7 @@ public class Main : MonoBehaviour
         var line = new Line();
         line.SetUp(pos, pos2, Color.red, new GameObject().transform, "some", 0.1f, this.CylinderPrefab);
         var seg = line.line.AddComponent<DelimitorSegmentX>();
-        seg.SetUp(line, this.Ysegments, this.camera, pos.x, new Vector2(pos.x, this.yTop), new Vector2(pos.x, this.yBottom), this);
+        seg.SetUp(line, this.Ysegments, this.myCamera, pos.x, new Vector2(pos.x, this.yTop), new Vector2(pos.x, this.yBottom), this);
         this.Xsegments.Add(seg);
     }
 
@@ -319,7 +387,7 @@ public class Main : MonoBehaviour
         var line = new Line();
         line.SetUp(pos, pos2, Color.red, new GameObject().transform, "some", 0.1f, this.CylinderPrefab);
         var seg = line.line.AddComponent<DelimitorSegmentY>();
-        seg.SetUp(line, this.Xsegments, this.camera, pos.y, new Vector2(this.xLeft, pos.y), new Vector2(this.xRight, pos.y), this);
+        seg.SetUp(line, this.Xsegments, this.myCamera, pos.y, new Vector2(this.xLeft, pos.y), new Vector2(this.xRight, pos.y), this);
         this.Ysegments.Add(seg);
     }
 
@@ -328,7 +396,7 @@ public class Main : MonoBehaviour
         var line = new Line();
         line.SetUp(pos, pos2, Color.red, new GameObject().transform, "some", 0.1f, this.CylinderPrefab);
         var seg = line.line.AddComponent<DelimitorSegmentX>();
-        seg.SetUp(line, this.Ysegments, this.camera, pos.x, pos, pos2, this);
+        seg.SetUp(line, this.Ysegments, this.myCamera, pos.x, pos, pos2, this);
         this.Xsegments.Add(seg);
     }
 
@@ -337,16 +405,16 @@ public class Main : MonoBehaviour
         var line = new Line();
         line.SetUp(pos, pos2, Color.red, new GameObject().transform, "some", 0.1f, this.CylinderPrefab);
         var seg = line.line.AddComponent<DelimitorSegmentY>();
-        seg.SetUp(line, this.Xsegments, this.camera, pos.y, pos, pos2, this);
+        seg.SetUp(line, this.Xsegments, this.myCamera, pos.y, pos, pos2, this);
         this.Ysegments.Add(seg);
     }
 
-    #region HELPERS
+#region HELPERS
 
     private void GetScreenDimentions()
     {
-        Vector3 bottomLeft = camera.ViewportToWorldPoint(new Vector3(0, 0, camera.nearClipPlane));
-        Vector3 topRight = camera.ViewportToWorldPoint(new Vector3(1, 1, camera.nearClipPlane));
+        Vector3 bottomLeft = myCamera.ViewportToWorldPoint(new Vector3(0, 0, myCamera.nearClipPlane));
+        Vector3 topRight = myCamera.ViewportToWorldPoint(new Vector3(1, 1, myCamera.nearClipPlane));
 
         //Debug.Log("BOTTOM_LEFT: " + bottomLeft);
         //Debug.Log("TOP_RIGHT: " + topRight);
@@ -385,7 +453,15 @@ public class Main : MonoBehaviour
         }
     }
 
-    #endregion
+#endregion
+
+    private void AddBorderLines()
+    {
+        this.CreateLineX(new Vector2(xLeft, yBottom), new Vector2(xLeft, yTop));
+        this.CreateLineX(new Vector2(xRight, yBottom), new Vector2(xRight, yTop));
+        this.CreateLineY(new Vector2(xLeft, yBottom), new Vector2(xRight, yBottom));
+        this.CreateLineY(new Vector2(xLeft, yTop), new Vector2(xRight, yTop));
+    }
 
     private void OnGUI()
     {
